@@ -1,7 +1,7 @@
 # BiblioMap 
 
 Projeto Integrador do curso de Assistente de Logística (SENAI Caxias). 
-Sistema para controlo de stock, endereçamento físico e rastreabilidade do acervo bibliográfico e patrimonial.
+Sistema para controlo de estoque, endereçamento físico e rastreabilidade do acervo bibliográfico e patrimonial.
 
 ---
 
