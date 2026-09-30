@@ -19,9 +19,9 @@ login_manager.login_view = 'login'
 
 class Usuario(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    matricula = db.Column(db.String(50), unique=True, nullable=False)
+    identificador = db.Column(db.String(50), unique=True, nullable=False) # Armazena Matrícula ou CPF
     nome = db.Column(db.String(100), nullable=False)
-    tipo = db.Column(db.String(20), default='aluno') # 'aluno' ou 'admin'
+    perfil = db.Column(db.String(20), nullable=False) # 'aluno' ou 'funcionario'
 
 class Livro(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -44,7 +44,7 @@ class Emprestimo(db.Model):
 def load_user(user_id):
     return Usuario.query.get(int(user_id))
 
-# --- TEMPLATE HTML BASE UNIFICADO ---
+# --- TEMPLATE HTML BASE ---
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -53,14 +53,17 @@ HTML_TEMPLATE = """
     <meta charset="UTF-8">
     <title>BiblioMap | SENAI Caxias</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .bg-senai { background-color: #8dc6e4; }
+    </style>
 </head>
 <body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-info mb-4">
+    <nav class="navbar navbar-expand-lg bg-senai mb-4 shadow-sm">
         <div class="container">
             <a class="navbar-brand fw-bold text-dark" href="#">BiblioMap | SENAI Caxias</a>
             <div>
                 {% if current_user.is_authenticated %}
-                    <span class="me-3 text-dark">Olá, {{ current_user.nome }}</span>
+                    <span class="me-3 text-dark fw-semibold">Olá, {{ current_user.nome }} ({{ current_user.perfil.capitalize() }})</span>
                     <a href="{{ url_for('logout') }}" class="btn btn-outline-dark btn-sm">Sair</a>
                 {% endif %}
             </div>
@@ -71,7 +74,10 @@ HTML_TEMPLATE = """
         {% with messages = get_flashed_messages() %}
             {% if messages %}
                 {% for message in messages %}
-                    <div class="alert alert-info">{{ message }}</div>
+                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
@@ -87,25 +93,52 @@ HTML_TEMPLATE = """
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        matricula = request.form.get('matricula')
-        user = Usuario.query.filter_by(matricula=matricula).first()
+        identificador = request.form.get('identificador', '').strip()
+        perfil = request.form.get('perfil')
+
+        if not identificador:
+            flash('Por favor, insira a sua Matrícula ou CPF.')
+            return redirect(url_for('login'))
+
+        # Procura o usuário pelo identificador (Matrícula ou CPF)
+        user = Usuario.query.filter_by(identificador=identificador).first()
+
         if not user:
-            # Criação automática para testes rápidos
-            user = Usuario(matricula=matricula, nome=f"Aluno {matricula}")
+            # Caso ainda não exista, cria o cadastro com o perfil selecionado
+            nome_padrao = f"Aluno ({identificador})" if perfil == 'aluno' else f"Funcionário ({identificador})"
+            user = Usuario(identificador=identificador, nome=nome_padrao, perfil=perfil)
             db.session.add(user)
             db.session.commit()
+        else:
+            # Atualiza o perfil caso o usuário mude a seleção no login
+            user.perfil = perfil
+            db.session.commit()
+
         login_user(user)
         return redirect(url_for('dashboard'))
-    
+
     login_html = HTML_TEMPLATE.replace('{% block content %}{% endblock %}', '''
-        <div class="row justify-content-center">
-            <div class="col-md-4">
-                <div class="card p-4 shadow-sm">
-                    <h4 class="mb-3">Login do Aluno</h4>
+        <div class="row justify-content-center mt-5">
+            <div class="col-md-5">
+                <div class="card p-4 shadow">
+                    <h4 class="mb-3 text-center fw-bold">Acesso ao Sistema</h4>
                     <form method="POST">
                         <div class="mb-3">
-                            <label>Matrícula / ID</label>
-                            <input type="text" name="matricula" class="form-control" required>
+                            <label class="form-label font-weight-bold">Selecione o Perfil:</label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="perfil" id="aluno" value="aluno" checked>
+                                    <label class="form-check-label" for="aluno">Aluno</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="perfil" id="funcionario" value="funcionario">
+                                    <label class="form-check-label" for="funcionario">Funcionário</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Matrícula ou CPF:</label>
+                            <input type="text" name="identificador" class="form-control" placeholder="Digite sua Matrícula ou CPF" required>
                         </div>
                         <button type="submit" class="btn btn-primary w-100">Entrar</button>
                     </form>
@@ -125,30 +158,33 @@ def logout():
 @login_required
 def dashboard():
     livros = Livro.query.all()
-    
+
     dash_html = HTML_TEMPLATE.replace('{% block content %}{% endblock %}', '''
         <div class="card p-4 shadow-sm mb-4">
-            <h4>Cadastrar Novo Livro / Endereçamento</h4>
-            <form action="/cadastrar_livro" method="POST" class="row g-3">
-                <div class="col-md-2"><input type="text" name="tombo" placeholder="Tombo/Patrimônio" class="form-control" required></div>
-                <div class="col-md-3"><input type="text" name="titulo" placeholder="Título" class="form-control" required></div>
+            <h4>Gestão de Endereçamento e Acervo</h4>
+            <p class="text-muted">Sistema de rastreabilidade e controle patrimonial do acervo bibliográfico.</p>
+            {% if current_user.perfil == 'funcionario' %}
+            <form action="/cadastrar_livro" method="POST" class="row g-3 mt-2">
+                <div class="col-md-2"><input type="text" name="tombo" placeholder="Tombo / Patrimônio" class="form-control" required></div>
+                <div class="col-md-3"><input type="text" name="titulo" placeholder="Título do Livro" class="form-control" required></div>
                 <div class="col-md-3"><input type="text" name="autor" placeholder="Autor" class="form-control" required></div>
                 <div class="col-md-1"><input type="text" name="rua" placeholder="Rua" class="form-control" required></div>
                 <div class="col-md-1"><input type="text" name="estante" placeholder="Estante" class="form-control" required></div>
                 <div class="col-md-1"><input type="text" name="prateleira" placeholder="Prat." class="form-control" required></div>
-                <div class="col-md-1"><button type="submit" class="btn btn-success w-100">+</button></div>
+                <div class="col-md-1"><button type="submit" class="btn btn-success w-100">Cadastrar</button></div>
             </form>
+            {% endif %}
         </div>
 
         <div class="card p-4 shadow-sm">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h4>Consulta de Exemplares e Localização</h4>
-                <a href="/relatorio" class="btn btn-secondary btn-sm">Gerar Relatório de Empréstimos</a>
+                <a href="/relatorio" class="btn btn-secondary btn-sm">Ver Relatórios</a>
             </div>
             <table class="table table-striped align-middle">
                 <thead class="table-dark">
                     <tr>
-                        <th>Tombo</th>
+                        <th>Tombo / Patrimônio</th>
                         <th>Título</th>
                         <th>Autor</th>
                         <th>Rua</th>
@@ -184,6 +220,10 @@ def dashboard():
 @app.route('/cadastrar_livro', methods=['POST'])
 @login_required
 def cadastrar_livro():
+    if current_user.perfil != 'funcionario':
+        flash('Apenas funcionários podem cadastrar novos livros.')
+        return redirect(url_for('dashboard'))
+
     novo_livro = Livro(
         tombo=request.form.get('tombo'),
         titulo=request.form.get('titulo'),
@@ -201,9 +241,8 @@ def cadastrar_livro():
 @login_required
 def gerar_qrcode(livro_id):
     livro = Livro.query.get_or_404(livro_id)
-    # Conteúdo codificado no QR Code (localização + dados)
     conteudo = f"LIVRO: {livro.titulo}\nTOMBO: {livro.tombo}\nLOCALIZAÇÃO: Rua {livro.rua}, Estante {livro.estante}, Prateleira {livro.prateleira}"
-    
+
     img = qrcode.make(conteudo)
     buf = io.BytesIO()
     img.save(buf)
@@ -216,7 +255,7 @@ def relatorio():
     total_livros = Livro.query.count()
     disponiveis = Livro.query.filter_by(status='Disponível').count()
     emprestados = total_livros - disponiveis
-    
+
     rel_html = HTML_TEMPLATE.replace('{% block content %}{% endblock %}', '''
         <div class="card p-4 shadow-sm">
             <h4>Relatório Geral do Acervo</h4>
@@ -231,7 +270,6 @@ def relatorio():
     ''')
     return render_template_string(rel_html, total=total_livros, disp=disponiveis, emp=emprestados)
 
-# Criar banco de dados ao iniciar
 with app.app_context():
     db.create_all()
 
