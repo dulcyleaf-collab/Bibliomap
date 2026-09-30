@@ -19,7 +19,7 @@ login_manager.login_view = 'login'
 
 class Usuario(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    identificador = db.Column(db.String(50), unique=True, nullable=False) # CPF ou Matrícula
+    identificador = db.Column(db.String(50), unique=True, nullable=False) # Matrícula ou CPF
     nome = db.Column(db.String(100), nullable=False)
     perfil = db.Column(db.String(20), nullable=False) # 'aluno' ou 'funcionario'
 
@@ -36,8 +36,8 @@ class Livro(db.Model):
     posicao = db.Column(db.String(20), nullable=False)
 
     # Estado e Status
-    estado = db.Column(db.String(30), default='Bom')
-    status = db.Column(db.String(30), default='Disponível')
+    estado = db.Column(db.String(30), default='Bom') # Excelente, Bom, Danificado
+    status = db.Column(db.String(30), default='Disponível') # Disponível, Emprestado, Extraviado, Baixado
 
 class Emprestimo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -54,7 +54,7 @@ class Emprestimo(db.Model):
 def load_user(user_id):
     return Usuario.query.get(int(user_id))
 
-# --- TEMPLATE VISUAL ---
+# --- TEMPLATE VISUAL BASE ---
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -78,6 +78,7 @@ HTML_TEMPLATE = """
         .badge-soft-warning { background-color: #fef9c3; color: #a16207; font-weight: 600; padding: 6px 12px; border-radius: 20px; }
         .badge-soft-danger  { background-color: #fee2e2; color: #b91c1c; font-weight: 600; padding: 6px 12px; border-radius: 20px; }
         .badge-soft-secondary { background-color: #f1f5f9; color: #475569; font-weight: 600; padding: 6px 12px; border-radius: 20px; }
+        .stat-card { border-radius: 16px; padding: 20px; background: #ffffff; border: 1px solid #e2e8f0; }
     </style>
 </head>
 <body>
@@ -93,8 +94,11 @@ HTML_TEMPLATE = """
                         <i class="bi bi-person-circle me-1 text-white"></i> {{ current_user.nome }} 
                         <span class="badge bg-white text-dark ms-1">{{ current_user.perfil.capitalize() }}</span>
                     </span>
+                    <a href="{{ url_for('historico') }}" class="btn btn-light btn-sm fw-semibold me-2 rounded-3">
+                        <i class="bi bi-clock-history me-1"></i> Histórico
+                    </a>
                     <a href="{{ url_for('relatorio') }}" class="btn btn-light btn-sm fw-semibold me-2 rounded-3">
-                        <i class="bi bi-bar-chart-line me-1"></i> Relatórios
+                        <i class="bi bi-bar-chart-line me-1"></i> Inventário & Relatórios
                     </a>
                     <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm fw-semibold rounded-3">
                         <i class="bi bi-box-arrow-right"></i> Sair
@@ -131,7 +135,7 @@ def login():
         perfil = request.form.get('perfil')
 
         if not identificador:
-            flash('Informe a sua Matrícula ou CPF.')
+            flash('Informe a Matrícula ou CPF.')
             return redirect(url_for('login'))
 
         user = Usuario.query.filter_by(identificador=identificador).first()
@@ -152,8 +156,8 @@ def login():
                         <div class="d-inline-flex align-items-center justify-content-center bg-primary-subtle text-primary rounded-circle mb-3" style="width: 64px; height: 64px;">
                             <i class="bi bi-shield-lock-fill fs-2"></i>
                         </div>
-                        <h4 class="fw-bold">Acesso ao Sistema</h4>
-                        <p class="text-muted small">BiblioMap SENAI Caxias</p>
+                        <h4 class="fw-bold">BiblioMap SENAI</h4>
+                        <p class="text-muted small">Acesso ao Painel Bibliotecário e Alunos</p>
                     </div>
 
                     <form method="POST">
@@ -166,7 +170,7 @@ def login():
                                 </div>
                                 <div class="col-6">
                                     <input type="radio" class="btn-check" name="perfil" id="funcionario" value="funcionario">
-                                    <label class="btn btn-outline-primary w-100 py-2 rounded-3 fw-semibold" for="funcionario">Funcionário</label>
+                                    <label class="btn btn-outline-primary w-100 py-2 rounded-3 fw-semibold" for="funcionario">Bibliotecário</label>
                                 </div>
                             </div>
                         </div>
@@ -194,11 +198,27 @@ def logout():
 @login_required
 def dashboard():
     livros = Livro.query.all()
+    atrasos_count = Emprestimo.query.filter(Emprestimo.data_devolucao == None, Emprestimo.data_previsao < datetime.utcnow()).count()
 
     dash_html = HTML_TEMPLATE.replace('{% block content %}{% endblock %}', '''
         {% if current_user.perfil == 'funcionario' %}
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="text-muted small fw-semibold">ACERVO TOTAL</div>
+                    <div class="fs-2 fw-bold text-dark mt-1">{{ livros|length }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="text-muted small fw-semibold">ALERTAS DE ATRASO</div>
+                    <div class="fs-2 fw-bold text-danger mt-1">{{ atrasos_count }}</div>
+                </div>
+            </div>
+        </div>
+
         <div class="card card-custom p-4 mb-4">
-            <h5 class="fw-bold mb-3"><i class="bi bi-plus-circle-fill text-primary me-2"></i> Cadastrar Novo Exemplar</h5>
+            <h5 class="fw-bold mb-3"><i class="bi bi-plus-circle-fill text-primary me-2"></i> Cadastro de Livros e Endereçamento</h5>
             <form action="/cadastrar_livro" method="POST" class="row g-3">
                 <div class="col-md-2"><input type="text" name="patrimonio" placeholder="Nº Patrimônio" class="form-control" required></div>
                 <div class="col-md-4"><input type="text" name="titulo" placeholder="Título do Livro" class="form-control" required></div>
@@ -211,14 +231,14 @@ def dashboard():
                     </select>
                 </div>
                 
-                <div class="col-12"><small class="text-muted fw-semibold">Endereçamento Físico:</small></div>
+                <div class="col-12"><small class="text-muted fw-semibold">Localização por Estante e Prateleira:</small></div>
                 <div class="col-md-3"><input type="text" name="rua" placeholder="Rua" class="form-control" required></div>
                 <div class="col-md-3"><input type="text" name="estante" placeholder="Estante" class="form-control" required></div>
                 <div class="col-md-3"><input type="text" name="prateleira" placeholder="Prateleira" class="form-control" required></div>
                 <div class="col-md-3"><input type="text" name="posicao" placeholder="Posição" class="form-control" required></div>
 
                 <div class="col-12 text-end mt-3">
-                    <button type="submit" class="btn btn-primary-custom text-white">Cadastrar Livro</button>
+                    <button type="submit" class="btn btn-primary-custom text-white">Cadastrar Exemplar</button>
                 </div>
             </form>
         </div>
@@ -226,8 +246,8 @@ def dashboard():
 
         <div class="card card-custom p-4">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h5 class="fw-bold m-0"><i class="bi bi-book-half text-primary me-2"></i> Acervo e QR Codes</h5>
-                <span class="badge bg-light text-dark border px-3 py-2 rounded-pill fw-semibold">{{ livros|length }} Exemplares</span>
+                <h5 class="fw-bold m-0"><i class="bi bi-book-half text-primary me-2"></i> Consulta do Acervo e QR Codes</h5>
+                <span class="badge bg-light text-dark border px-3 py-2 rounded-pill fw-semibold">{{ livros|length }} Registros</span>
             </div>
 
             <div class="table-responsive">
@@ -236,8 +256,9 @@ def dashboard():
                         <tr>
                             <th>Patrimônio</th>
                             <th>Livro / Autor</th>
-                            <th>Endereço na Biblioteca</th>
-                            <th>Status</th>
+                            <th>Localização (Rua/Estante/Prat/Pos)</th>
+                            <th>Conservação</th>
+                            <th>Disponibilidade</th>
                             <th class="text-end">Ações</th>
                         </tr>
                     </thead>
@@ -251,9 +272,10 @@ def dashboard():
                             </td>
                             <td>
                                 <span class="badge badge-soft-secondary">
-                                    <i class="bi bi-geo-alt me-1"></i>Rua {{ livro.rua }} | Est. {{ livro.estante }} | Prat. {{ livro.prateleira }}
+                                    <i class="bi bi-geo-alt me-1"></i>Rua {{ livro.rua }} | Est. {{ livro.estante }} | Prat. {{ livro.prateleira }} | Pos. {{ livro.posicao }}
                                 </span>
                             </td>
+                            <td><span class="badge badge-soft-secondary">{{ livro.estado }}</span></td>
                             <td>
                                 {% if livro.status == 'Disponível' %}
                                     <span class="badge badge-soft-success">Disponível</span>
@@ -264,32 +286,38 @@ def dashboard():
                                 {% endif %}
                             </td>
                             <td class="text-end">
-                                <a href="/qrcode/{{ livro.id }}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-2 me-1">
-                                    <i class="bi bi-qr-code me-1"></i> Ver/Imprimir QR Code
+                                <a href="/qrcode/{{ livro.id }}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-2 me-1" title="Gerar QR Code">
+                                    <i class="bi bi-qr-code"></i>
                                 </a>
                                 
                                 {% if livro.status == 'Disponível' %}
-                                    <a href="/escanear_livro/{{ livro.id }}" class="btn btn-sm btn-primary rounded-2">
-                                        <i class="bi bi-qr-code-scan me-1"></i> Emprestar
+                                    <a href="/escanear_livro/{{ livro.id }}" class="btn btn-sm btn-primary rounded-2 me-1">
+                                        <i class="bi bi-box-arrow-up-right me-1"></i> Emprestar
+                                    </a>
+                                {% endif %}
+
+                                {% if current_user.perfil == 'funcionario' %}
+                                    <a href="/alterar_estado/{{ livro.id }}" class="btn btn-sm btn-outline-dark rounded-2" title="Controle de Danos/Extravio">
+                                        <i class="bi bi-pencil"></i>
                                     </a>
                                 {% endif %}
                             </td>
                         </tr>
                         {% else %}
-                        <tr><td colspan="5" class="text-center py-4 text-muted">Nenhum livro cadastrado.</td></tr>
+                        <tr><td colspan="6" class="text-center py-4 text-muted">Nenhum livro cadastrado.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
     ''')
-    return render_template_string(dash_html, livros=livros)
+    return render_template_string(dash_html, livros=livros, atrasos_count=atrasos_count)
 
 @app.route('/cadastrar_livro', methods=['POST'])
 @login_required
 def cadastrar_livro():
     if current_user.perfil != 'funcionario':
-        flash('Apenas funcionários podem cadastrar livros.')
+        flash('Apenas bibliotecários podem cadastrar novos livros.')
         return redirect(url_for('dashboard'))
 
     novo = Livro(
@@ -304,10 +332,8 @@ def cadastrar_livro():
     )
     db.session.add(novo)
     db.session.commit()
-    flash('Livro cadastrado com sucesso!')
+    flash('Livro e localização cadastrados com sucesso!')
     return redirect(url_for('dashboard'))
-
-# --- TELA DE ESCANEAR / REGISTRAR EMPRÉSTIMO ---
 
 @app.route('/escanear_livro/<int:livro_id>', methods=['GET', 'POST'])
 @login_required
@@ -322,7 +348,6 @@ def escanear_livro(livro_id):
             flash('Informe a Matrícula ou CPF do aluno.')
             return redirect(url_for('escanear_livro', livro_id=livro.id))
 
-        # Busca ou cria o aluno no sistema
         aluno = Usuario.query.filter_by(identificador=identificador_aluno).first()
         if not aluno:
             nome_final = nome_aluno if nome_aluno else f"Aluno ({identificador_aluno})"
@@ -333,7 +358,6 @@ def escanear_livro(livro_id):
             aluno.nome = nome_aluno
             db.session.commit()
 
-        # Altera o status do livro e gera empréstimo por 7 dias
         livro.status = 'Emprestado'
         data_retirada = datetime.utcnow()
         data_previsao = data_retirada + timedelta(days=7)
@@ -347,37 +371,86 @@ def escanear_livro(livro_id):
         db.session.add(novo_emp)
         db.session.commit()
 
-        flash(f'Empréstimo do livro "{livro.titulo}" registado para {aluno.nome}! Devolução até: {data_previsao.strftime("%d/%m/%Y")} (Prazo de 7 dias).')
+        flash(f'Empréstimo registrado para {aluno.nome}! Devolução até: {data_previsao.strftime("%d/%m/%Y")} (Prazo de 7 dias).')
         return redirect(url_for('dashboard'))
 
     html = HTML_TEMPLATE.replace('{% block content %}{% endblock %}', f'''
         <div class="row justify-content-center">
             <div class="col-md-6">
                 <div class="card card-custom p-4">
-                    <h5 class="fw-bold mb-3"><i class="bi bi-qr-code-scan text-primary me-2"></i> Registo de Empréstimo via QR Code</h5>
+                    <h5 class="fw-bold mb-3"><i class="bi bi-qr-code-scan text-primary me-2"></i> Leitura de QR Code / Empréstimo</h5>
                     
                     <div class="bg-light p-3 rounded-3 mb-4 border">
                         <h6 class="fw-bold m-0">{livro.titulo}</h6>
-                        <small class="text-muted">Patrimônio: #{livro.patrimonio} | Localização: Rua {livro.rua}, Estante {livro.estante}</small>
+                        <small class="text-muted">Patrimônio: #{livro.patrimonio} | Estante: {livro.estante}, Prateleira: {livro.prateleira}</small>
                     </div>
 
                     <form method="POST">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Matrícula ou CPF do Aluno:</label>
-                            <input type="text" name="identificador_aluno" class="form-control" placeholder="Digite ou escaneie o documento do aluno" required>
+                            <input type="text" name="identificador_aluno" class="form-control" placeholder="Digite ou escaneie o documento" required>
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Nome do Aluno (Opcional):</label>
+                            <label class="form-label fw-semibold">Nome do Aluno (Cadastro):</label>
                             <input type="text" name="nome_aluno" class="form-control" placeholder="Nome completo do aluno">
                         </div>
 
-                        <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+                        <div class="alert alert-warning d-flex align-items-center mb-4">
                             <i class="bi bi-clock-history me-2 fs-5"></i>
-                            <div><strong>Prazo do Empréstimo:</strong> O livro será registado por exatamente <strong>7 dias</strong>.</div>
+                            <div><strong>Prazo Automático:</strong> Empréstimo configurado para exatamente <strong>7 dias</strong>.</div>
                         </div>
 
-                        <button type="submit" class="btn btn-primary-custom w-100 text-white">Confirmar e Registar Empréstimo</button>
+                        <button type="submit" class="btn btn-primary-custom w-100 text-white">Registrar Empréstimo</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    ''')
+    return render_template_string(html)
+
+@app.route('/alterar_estado/<int:livro_id>', methods=['GET', 'POST'])
+@login_required
+def alterar_estado(livro_id):
+    if current_user.perfil != 'funcionario':
+        flash('Acesso negado.')
+        return redirect(url_for('dashboard'))
+
+    livro = Livro.query.get_or_404(livro_id)
+    if request.method == 'POST':
+        livro.estado = request.form.get('estado')
+        novo_status = request.form.get('status')
+        if novo_status:
+            livro.status = novo_status
+        db.session.commit()
+        flash('Situação patrimonial e controle de danos atualizados!')
+        return redirect(url_for('dashboard'))
+
+    html = HTML_TEMPLATE.replace('{% block content %}{% endblock %}', f'''
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card card-custom p-4">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-exclamation-octagon text-danger me-2"></i> Controle de Danos e Extravios</h5>
+                    <p class="text-muted small">Exemplar: <strong>{livro.titulo}</strong> (#{livro.patrimonio})</p>
+                    
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Estado de Conservação:</label>
+                            <select name="estado" class="form-select">
+                                <option value="Excelente" {"selected" if livro.estado=='Excelente' else ""}>Excelente</option>
+                                <option value="Bom" {"selected" if livro.estado=='Bom' else ""}>Bom</option>
+                                <option value="Danificado" {"selected" if livro.estado=='Danificado' else ""}>Danificado</option>
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Situação no Acervo:</label>
+                            <select name="status" class="form-select">
+                                <option value="Disponível" {"selected" if livro.status=='Disponível' else ""}>Disponível</option>
+                                <option value="Extraviado" {"selected" if livro.status=='Extraviado' else ""}>Extraviado (Perdido)</option>
+                                <option value="Baixado" {"selected" if livro.status=='Baixado' else ""}>Baixado (Descarte Patrimonial)</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary-custom w-100 text-white">Atualizar Patrimônio</button>
                     </form>
                 </div>
             </div>
@@ -389,7 +462,6 @@ def escanear_livro(livro_id):
 @login_required
 def gerar_qrcode(livro_id):
     livro = Livro.query.get_or_404(livro_id)
-    # O QR Code guarda o link direto para o funcionário escanear com o telemóvel
     link_emprestimo = request.host_url.rstrip('/') + url_for('escanear_livro', livro_id=livro.id)
 
     img = qrcode.make(link_emprestimo)
@@ -405,8 +477,60 @@ def devolver(emp_id):
     emp.data_devolucao = datetime.utcnow()
     emp.livro.status = 'Disponível'
     db.session.commit()
-    flash('Devolução registada com sucesso!')
+    flash('Devolução registrada com sucesso!')
     return redirect(url_for('relatorio'))
+
+@app.route('/historico')
+@login_required
+def historico():
+    todos_emprestimos = Emprestimo.query.order_by(Emprestimo.data_retirada.desc()).all()
+
+    hist_html = HTML_TEMPLATE.replace('{% block content %}{% endblock %}', '''
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold m-0"><i class="bi bi-clock-history text-primary me-2"></i> Histórico Completo de Movimentações</h4>
+            <a href="/" class="btn btn-outline-secondary rounded-3"><i class="bi bi-arrow-left me-1"></i> Voltar</a>
+        </div>
+
+        <div class="card card-custom p-4">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Livro</th>
+                            <th>Aluno</th>
+                            <th>Retirada</th>
+                            <th>Previsão</th>
+                            <th>Devolução</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emp in todos_emprestimos %}
+                        <tr>
+                            <td><strong>{{ emp.livro.titulo }}</strong> <br><small class="text-muted">#{{ emp.livro.patrimonio }}</small></td>
+                            <td>{{ emp.usuario.nome }} <br><small class="text-muted">ID: {{ emp.usuario.identificador }}</small></td>
+                            <td>{{ emp.data_retirada.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td>{{ emp.data_previsao.strftime('%d/%m/%Y') }}</td>
+                            <td>{{ emp.data_devolucao.strftime('%d/%m/%Y %H:%M') if emp.data_devolucao else '-' }}</td>
+                            <td>
+                                {% if emp.data_devolucao %}
+                                    <span class="badge badge-soft-secondary">Finalizado</span>
+                                {% elif emp.data_previsao < agora %}
+                                    <span class="badge badge-soft-danger">ATRASADO</span>
+                                {% else %}
+                                    <span class="badge badge-soft-warning">Em Aumento / Em Curso</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6" class="text-center py-4 text-muted">Nenhuma movimentação registrada.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    ''')
+    return render_template_string(hist_html, todos_emprestimos=todos_emprestimos, agora=datetime.utcnow())
 
 @app.route('/relatorio')
 @login_required
@@ -415,23 +539,53 @@ def relatorio():
     emprestimos_ativos = Emprestimo.query.filter_by(data_devolucao=None).all()
     agora = datetime.utcnow()
 
+    danificados = Livro.query.filter_by(estado='Danificado').count()
+    extraviados = Livro.query.filter(Livro.status.in_(['Extraviado', 'Baixado'])).count()
+
     rel_html = HTML_TEMPLATE.replace('{% block content %}{% endblock %}', '''
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="fw-bold m-0"><i class="bi bi-pie-chart-fill text-primary me-2"></i> Relatórios Gerenciais</h4>
+            <h4 class="fw-bold m-0"><i class="bi bi-pie-chart-fill text-primary me-2"></i> Relatórios de Inventário e Patrimônio</h4>
             <a href="/" class="btn btn-outline-secondary rounded-3"><i class="bi bi-arrow-left me-1"></i> Voltar</a>
         </div>
 
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="text-muted small fw-semibold">TOTAL DO ACERVO</div>
+                    <div class="fs-2 fw-bold text-dark mt-1">{{ total }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="text-muted small fw-semibold">EMPRÉSTIMOS ATIVOS</div>
+                    <div class="fs-2 fw-bold text-warning mt-1">{{ emp_count }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="text-muted small fw-semibold">LIVROS DANIFICADOS</div>
+                    <div class="fs-2 fw-bold text-danger mt-1">{{ danificados }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="text-muted small fw-semibold">EXTRAVIADOS / BAIXADOS</div>
+                    <div class="fs-2 fw-bold text-secondary mt-1">{{ extraviados }}</div>
+                </div>
+            </div>
+        </div>
+
         <div class="card card-custom p-4">
-            <h5 class="fw-bold mb-3"><i class="bi bi-clock-history me-2 text-primary"></i> Livros Emprestados e Prazos (7 dias)</h5>
+            <h5 class="fw-bold mb-3"><i class="bi bi-exclamation-triangle text-danger me-2"></i> Empréstimos Ativos e Alertas de Atraso</h5>
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead class="table-light">
                         <tr>
                             <th>Livro</th>
                             <th>Aluno</th>
-                            <th>Data Retirada</th>
-                            <th>Devolução Prevista</th>
-                            <th>Situação</th>
+                            <th>Retirada</th>
+                            <th>Previsão Devolução</th>
+                            <th>Alerta / Situação</th>
                             <th class="text-end">Ação</th>
                         </tr>
                     </thead>
@@ -444,17 +598,17 @@ def relatorio():
                             <td>{{ emp.data_previsao.strftime('%d/%m/%Y') }}</td>
                             <td>
                                 {% if emp.data_previsao < agora %}
-                                    <span class="badge badge-soft-danger"><i class="bi bi-exclamation-triangle me-1"></i> ATRASADO</span>
+                                    <span class="badge badge-soft-danger"><i class="bi bi-bell-fill me-1"></i> ALERTA: ATRASADO</span>
                                 {% else %}
-                                    <span class="badge badge-soft-success">Dentro do prazo</span>
+                                    <span class="badge badge-soft-success">Dentro do prazo (7 dias)</span>
                                 {% endif %}
                             </td>
                             <td class="text-end">
-                                <a href="/devolver/{{ emp.id }}" class="btn btn-sm btn-outline-success rounded-2">Registar Devolução</a>
+                                <a href="/devolver/{{ emp.id }}" class="btn btn-sm btn-outline-success rounded-2">Registrar Devolução</a>
                             </td>
                         </tr>
                         {% else %}
-                        <tr><td colspan="6" class="text-center py-4 text-muted">Nenhum livro emprestado no momento.</td></tr>
+                        <tr><td colspan="6" class="text-center py-4 text-muted">Nenhum empréstimo pendente no momento.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -466,6 +620,8 @@ def relatorio():
         rel_html, 
         total=len(livros), 
         emp_count=len(emprestimos_ativos), 
+        danificados=danificados, 
+        extraviados=extraviados, 
         emprestimos_ativos=emprestimos_ativos, 
         agora=agora
     )
