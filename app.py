@@ -19,13 +19,13 @@ login_manager.login_view = 'login'
 
 class Usuario(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    identificador = db.Column(db.String(50), unique=True, nullable=False) # Matrícula ou CPF
+    identificador = db.Column(db.String(50), unique=True, nullable=False)
     nome = db.Column(db.String(100), nullable=False)
     perfil = db.Column(db.String(20), nullable=False) # 'aluno' ou 'funcionario'
 
 class Livro(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    patrimonio = db.Column(db.String(50), unique=True, nullable=False) # Número Patrimonial
+    patrimonio = db.Column(db.String(50), unique=True, nullable=False)
     titulo = db.Column(db.String(200), nullable=False)
     autor = db.Column(db.String(100), nullable=False)
     
@@ -35,9 +35,9 @@ class Livro(db.Model):
     prateleira = db.Column(db.String(20), nullable=False)
     posicao = db.Column(db.String(20), nullable=False)
 
-    # Controle Patrimonial e Estado
-    estado = db.Column(db.String(30), default='Bom') # Ex: Excelente, Bom, Danificado, Extraviado
-    status = db.Column(db.String(30), default='Disponível') # Disponível, Emprestado, Baixado
+    # Estado e Status
+    estado = db.Column(db.String(30), default='Bom')
+    status = db.Column(db.String(30), default='Disponível')
 
 class Emprestimo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -54,28 +54,91 @@ class Emprestimo(db.Model):
 def load_user(user_id):
     return Usuario.query.get(int(user_id))
 
-# --- TEMPLATE BASE ---
+# --- TEMPLATE VISUAL PREMIUM ---
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BiblioMap | SENAI Caxias</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        .bg-senai { background-color: #8dc6e4; }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        .navbar-custom {
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            box-shadow: 0 4px 20px -2px rgba(2, 132, 199, 0.25);
+        }
+        .brand-logo {
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .card-custom {
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            background: #ffffff;
+        }
+        .btn-primary-custom {
+            background-color: #0284c7;
+            border-color: #0284c7;
+            border-radius: 10px;
+            font-weight: 600;
+            padding: 10px 20px;
+            transition: all 0.2s;
+        }
+        .btn-primary-custom:hover {
+            background-color: #0369a1;
+            border-color: #0369a1;
+            transform: translateY(-1px);
+        }
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+            padding: 10px 14px;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #0284c7;
+            box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.15);
+        }
+        .badge-soft-success { background-color: #dcfce7; color: #15803d; font-weight: 600; padding: 6px 12px; border-radius: 20px; }
+        .badge-soft-warning { background-color: #fef9c3; color: #a16207; font-weight: 600; padding: 6px 12px; border-radius: 20px; }
+        .badge-soft-danger  { background-color: #fee2e2; color: #b91c1c; font-weight: 600; padding: 6px 12px; border-radius: 20px; }
+        .badge-soft-secondary { background-color: #f1f5f9; color: #475569; font-weight: 600; padding: 6px 12px; border-radius: 20px; }
+        .stat-card {
+            border-radius: 16px;
+            padding: 20px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+        }
     </style>
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-expand-lg bg-senai mb-4 shadow-sm">
-        <div class="container">
-            <a class="navbar-brand fw-bold text-dark" href="/">BiblioMap | SENAI Caxias</a>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom mb-4">
+        <div class="container py-1">
+            <a class="navbar-brand brand-logo d-flex align-items-center gap-2" href="/">
+                <i class="bi bi-journal-bookmark-fill fs-4"></i>
+                <span>BiblioMap <span class="badge bg-white text-primary fs-6 fw-bold ms-1" style="opacity: 0.9;">SENAI</span></span>
+            </a>
             <div>
                 {% if current_user.is_authenticated %}
-                    <span class="me-3 text-dark fw-semibold">Olá, {{ current_user.nome }} ({{ current_user.perfil.capitalize() }})</span>
-                    <a href="{{ url_for('relatorio') }}" class="btn btn-outline-dark btn-sm me-2">Relatórios</a>
-                    <a href="{{ url_for('logout') }}" class="btn btn-danger btn-sm">Sair</a>
+                    <span class="me-3 text-white-50 fw-medium">
+                        <i class="bi bi-person-circle me-1 text-white"></i> {{ current_user.nome }} 
+                        <span class="badge bg-white text-dark ms-1">{{ current_user.perfil.capitalize() }}</span>
+                    </span>
+                    <a href="{{ url_for('relatorio') }}" class="btn btn-light btn-sm fw-semibold me-2 rounded-3">
+                        <i class="bi bi-bar-chart-line me-1"></i> Relatórios
+                    </a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm fw-semibold rounded-3">
+                        <i class="bi bi-box-arrow-right"></i> Sair
+                    </a>
                 {% endif %}
             </div>
         </div>
@@ -85,8 +148,8 @@ HTML_TEMPLATE = """
         {% with messages = get_flashed_messages() %}
             {% if messages %}
                 {% for message in messages %}
-                    <div class="alert alert-info alert-dismissible fade show" role="alert">
-                        {{ message }}
+                    <div class="alert alert-info alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+                        <i class="bi bi-info-circle-fill me-2"></i> {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                 {% endfor %}
@@ -125,29 +188,44 @@ def login():
         return redirect(url_for('dashboard'))
 
     login_html = HTML_TEMPLATE.replace('{% block content %}{% endblock %}', '''
-        <div class="row justify-content-center mt-5">
+        <div class="row justify-content-center mt-4">
             <div class="col-md-5">
-                <div class="card p-4 shadow">
-                    <h4 class="mb-3 text-center fw-bold">Acesso ao Sistema</h4>
+                <div class="card card-custom p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <div class="d-inline-flex align-items-center justify-content-center bg-primary-subtle text-primary rounded-circle mb-3" style="width: 64px; height: 64px;">
+                            <i class="bi bi-shield-lock-fill fs-2"></i>
+                        </div>
+                        <h4 class="fw-bold">Acesso ao Sistema</h4>
+                        <p class="text-muted small">Gestão de Acervo e Endereçamento da Biblioteca</p>
+                    </div>
+
                     <form method="POST">
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Selecione o Perfil:</label>
-                            <div class="d-flex gap-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="perfil" id="aluno" value="aluno" checked>
-                                    <label class="form-check-label" for="aluno">Aluno</label>
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold small text-uppercase text-muted">Perfil de Acesso</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="radio" class="btn-check" name="perfil" id="aluno" value="aluno" checked>
+                                    <label class="btn btn-outline-primary w-100 py-2 rounded-3 fw-semibold" for="aluno">
+                                        <i class="bi bi-mortarboard me-1"></i> Aluno
+                                    </label>
                                 </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="perfil" id="funcionario" value="funcionario">
-                                    <label class="form-check-label" for="funcionario">Funcionário</label>
+                                <div class="col-6">
+                                    <input type="radio" class="btn-check" name="perfil" id="funcionario" value="funcionario">
+                                    <label class="btn btn-outline-primary w-100 py-2 rounded-3 fw-semibold" for="funcionario">
+                                        <i class="bi bi-person-badge me-1"></i> Funcionário
+                                    </label>
                                 </div>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Matrícula ou CPF:</label>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold small text-uppercase text-muted">Identificação</label>
                             <input type="text" name="identificador" class="form-control" placeholder="Digite sua Matrícula ou CPF" required>
                         </div>
-                        <button type="submit" class="btn btn-primary w-100">Entrar</button>
+
+                        <button type="submit" class="btn btn-primary-custom w-100 text-white">
+                            Entrar no Sistema <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
                     </form>
                 </div>
             </div>
@@ -165,78 +243,102 @@ def logout():
 @login_required
 def dashboard():
     livros = Livro.query.all()
-    agora = datetime.utcnow()
 
     dash_html = HTML_TEMPLATE.replace('{% block content %}{% endblock %}', '''
         {% if current_user.perfil == 'funcionario' %}
-        <div class="card p-4 shadow-sm mb-4">
-            <h4>1 & 3 & 4. Cadastro, Localização e Controle Patrimonial</h4>
-            <form action="/cadastrar_livro" method="POST" class="row g-3 mt-1">
-                <div class="col-md-2"><input type="text" name="patrimonio" placeholder="Nº Patrimonial" class="form-control" required></div>
-                <div class="col-md-3"><input type="text" name="titulo" placeholder="Título" class="form-control" required></div>
-                <div class="col-md-2"><input type="text" name="autor" placeholder="Autor" class="form-control" required></div>
-                <div class="col-md-1"><input type="text" name="rua" placeholder="Rua" class="form-control" required></div>
-                <div class="col-md-1"><input type="text" name="estante" placeholder="Estante" class="form-control" required></div>
-                <div class="col-md-1"><input type="text" name="prateleira" placeholder="Prat." class="form-control" required></div>
-                <div class="col-md-1"><input type="text" name="posicao" placeholder="Posição" class="form-control" required></div>
-                <div class="col-md-1">
+        <div class="card card-custom p-4 mb-4">
+            <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-plus-circle-fill text-primary me-2"></i> Cadastrar Novo Exemplar</h5>
+            <form action="/cadastrar_livro" method="POST" class="row g-3">
+                <div class="col-md-2"><input type="text" name="patrimonio" placeholder="Nº Patrimônio" class="form-control" required></div>
+                <div class="col-md-4"><input type="text" name="titulo" placeholder="Título do Livro" class="form-control" required></div>
+                <div class="col-md-3"><input type="text" name="autor" placeholder="Autor" class="form-control" required></div>
+                <div class="col-md-3">
                     <select name="estado" class="form-select">
-                        <option value="Excelente">Excelente</option>
-                        <option value="Bom" selected>Bom</option>
-                        <option value="Danificado">Danificado</option>
+                        <option value="Excelente">Estado: Excelente</option>
+                        <option value="Bom" selected>Estado: Bom</option>
+                        <option value="Danificado">Estado: Danificado</option>
                     </select>
                 </div>
-                <div class="col-md-12 text-end">
-                    <button type="submit" class="btn btn-success">Cadastrar Exemplar</button>
+                
+                <div class="col-12"><small class="text-muted fw-semibold">Localização Física (Endereçamento):</small></div>
+                <div class="col-md-3"><input type="text" name="rua" placeholder="Rua" class="form-control" required></div>
+                <div class="col-md-3"><input type="text" name="estante" placeholder="Estante" class="form-control" required></div>
+                <div class="col-md-3"><input type="text" name="prateleira" placeholder="Prateleira" class="form-control" required></div>
+                <div class="col-md-3"><input type="text" name="posicao" placeholder="Posição" class="form-control" required></div>
+
+                <div class="col-12 text-end mt-3">
+                    <button type="submit" class="btn btn-primary-custom text-white"><i class="bi bi-check-lg me-1"></i> Guardar Livro</button>
                 </div>
             </form>
         </div>
         {% endif %}
 
-        <div class="card p-4 shadow-sm">
-            <h4 class="mb-3">Acervo e Endereçamento</h4>
+        <div class="card card-custom p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="fw-bold m-0"><i class="bi bi-book-half text-primary me-2"></i> Acervo Bibliográfico</h5>
+                <span class="badge bg-light text-dark border px-3 py-2 rounded-pill fw-semibold">{{ livros|length }} Exemplares</span>
+            </div>
+
             <div class="table-responsive">
-                <table class="table table-striped align-middle">
-                    <thead class="table-dark">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
                         <tr>
                             <th>Patrimônio</th>
-                            <th>Título / Autor</th>
-                            <th>Localização (Rua/Est/Prat/Pos)</th>
-                            <th>Estado</th>
+                            <th>Livro / Autor</th>
+                            <th>Endereçamento Físico</th>
+                            <th>Conservação</th>
                             <th>Status</th>
-                            <th>Ações</th>
+                            <th class="text-end">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for livro in livros %}
                         <tr>
-                            <td><strong>{{ livro.patrimonio }}</strong></td>
-                            <td>{{ livro.titulo }} <br><small class="text-muted">{{ livro.autor }}</small></td>
-                            <td>Rua {{ livro.rua }} | Est. {{ livro.estante }} | Prat. {{ livro.prateleira }} | Pos. {{ livro.posicao }}</td>
-                            <td><span class="badge bg-secondary">{{ livro.estado }}</span></td>
+                            <td class="fw-bold text-secondary">#{{ livro.patrimonio }}</td>
                             <td>
-                                {% if livro.status == 'Disponível' %}
-                                    <span class="badge bg-success">Disponível</span>
-                                {% elif livro.status == 'Emprestado' %}
-                                    <span class="badge bg-warning text-dark">Emprestado</span>
-                                {% else %}
-                                    <span class="badge bg-danger">{{ livro.status }}</span>
-                                {% endif %}
+                                <div class="fw-bold">{{ livro.titulo }}</div>
+                                <div class="text-muted small">{{ livro.autor }}</div>
                             </td>
                             <td>
-                                <a href="/qrcode/{{ livro.id }}" target="_blank" class="btn btn-sm btn-outline-dark me-1">QR Code</a>
+                                <span class="badge badge-soft-secondary">
+                                    <i class="bi bi-geo-alt me-1"></i>Rua {{ livro.rua }} | Est. {{ livro.estante }} | Prat. {{ livro.prateleira }} | Pos. {{ livro.posicao }}
+                                </span>
+                            </td>
+                            <td><span class="badge badge-soft-secondary">{{ livro.estado }}</span></td>
+                            <td>
+                                {% if livro.status == 'Disponível' %}
+                                    <span class="badge badge-soft-success">Disponível</span>
+                                {% elif livro.status == 'Emprestado' %}
+                                    <span class="badge badge-soft-warning">Emprestado</span>
+                                {% else %}
+                                    <span class="badge badge-soft-danger">{{ livro.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="/qrcode/{{ livro.id }}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-2 me-1" title="Gerar QR Code">
+                                    <i class="bi bi-qr-code"></i>
+                                </a>
                                 
                                 {% if livro.status == 'Disponível' %}
-                                    <a href="/emprestar/{{ livro.id }}" class="btn btn-sm btn-primary me-1">Emprestar</a>
+                                    <a href="/emprestar/{{ livro.id }}" class="btn btn-sm btn-primary rounded-2 me-1">
+                                        <i class="bi bi-box-arrow-up-right me-1"></i> Emprestar
+                                    </a>
                                 {% endif %}
 
                                 {% if current_user.perfil == 'funcionario' %}
-                                    <a href="/alterar_estado/{{ livro.id }}" class="btn btn-sm btn-outline-secondary me-1">Alterar Estado</a>
+                                    <a href="/alterar_estado/{{ livro.id }}" class="btn btn-sm btn-outline-dark rounded-2" title="Editar Estado">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
                                 {% endif %}
                             </td>
                         </tr>
                         {% else %}
-                        <tr><td colspan="6" class="text-center">Nenhum livro cadastrado.</td></tr>
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                                Nenhum livro cadastrado no sistema.
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -279,7 +381,7 @@ def emprestar(livro_id):
     novo_emp = Emprestimo(livro_id=livro.id, usuario_id=current_user.id)
     db.session.add(novo_emp)
     db.session.commit()
-    flash(f'Livro "{livro.titulo}" emprestado com sucesso! Previsão de devolução: {novo_emp.data_previsao.strftime("%d/%m/%Y")}')
+    flash(f'Empréstimo do livro "{livro.titulo}" efetuado! Devolução prevista até: {novo_emp.data_previsao.strftime("%d/%m/%Y")}')
     return redirect(url_for('dashboard'))
 
 @app.route('/devolver/<int:emp_id>')
@@ -289,7 +391,7 @@ def devolver(emp_id):
     emp.data_devolucao = datetime.utcnow()
     emp.livro.status = 'Disponível'
     db.session.commit()
-    flash('Devolução registrada com sucesso!')
+    flash('Devolução registada com sucesso!')
     return redirect(url_for('relatorio'))
 
 @app.route('/alterar_estado/<int:livro_id>', methods=['GET', 'POST'])
@@ -306,31 +408,37 @@ def alterar_estado(livro_id):
         if novo_status:
             livro.status = novo_status
         db.session.commit()
-        flash('Situação patrimonial atualizada!')
+        flash('Gestão patrimonial atualizada!')
         return redirect(url_for('dashboard'))
 
     html = HTML_TEMPLATE.replace('{% block content %}{% endblock %}', f'''
-        <div class="card p-4 shadow-sm col-md-6 mx-auto">
-            <h4>Controle Patrimonial: {livro.titulo}</h4>
-            <form method="POST">
-                <div class="mb-3">
-                    <label class="form-label">Estado de Conservação:</label>
-                    <select name="estado" class="form-select">
-                        <option value="Excelente" {"selected" if livro.estado=='Excelente' else ""}>Excelente</option>
-                        <option value="Bom" {"selected" if livro.estado=='Bom' else ""}>Bom</option>
-                        <option value="Danificado" {"selected" if livro.estado=='Danificado' else ""}>Danificado</option>
-                    </select>
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card card-custom p-4">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-sliders me-2 text-primary"></i> Controlo Patrimonial</h5>
+                    <p class="text-muted small">A alterar dados do exemplar: <strong>{livro.titulo}</strong> (#{livro.patrimonio})</p>
+                    
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Estado de Conservação:</label>
+                            <select name="estado" class="form-select">
+                                <option value="Excelente" {"selected" if livro.estado=='Excelente' else ""}>Excelente</option>
+                                <option value="Bom" {"selected" if livro.estado=='Bom' else ""}>Bom</option>
+                                <option value="Danificado" {"selected" if livro.estado=='Danificado' else ""}>Danificado</option>
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Situação / Status:</label>
+                            <select name="status" class="form-select">
+                                <option value="Disponível" {"selected" if livro.status=='Disponível' else ""}>Disponível</option>
+                                <option value="Extraviado" {"selected" if livro.status=='Extraviado' else ""}>Extraviado (Perdido)</option>
+                                <option value="Baixado" {"selected" if livro.status=='Baixado' else ""}>Baixado (Descartado)</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary-custom w-100 text-white">Guardar Alterações</button>
+                    </form>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Situação/Status:</label>
-                    <select name="status" class="form-select">
-                        <option value="Disponível" {"selected" if livro.status=='Disponível' else ""}>Disponível</option>
-                        <option value="Extraviado" {"selected" if livro.status=='Extraviado' else ""}>Extraviado (Perdido)</option>
-                        <option value="Baixado" {"selected" if livro.status=='Baixado' else ""}>Baixado (Descartado)</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-primary w-100">Salvar Alterações</button>
-            </form>
+            </div>
         </div>
     ''')
     return render_template_string(html)
@@ -339,7 +447,7 @@ def alterar_estado(livro_id):
 @login_required
 def gerar_qrcode(livro_id):
     livro = Livro.query.get_or_404(livro_id)
-    texto = f"SENAI CAXIAS - BIBLIOMAP\nPATRIMÓNIO: {livro.patrimonio}\nTÍTULO: {livro.titulo}\nLOCAL: Rua {livro.rua}, Estante {livro.estante}, Prat. {livro.prateleira}, Pos. {livro.posicao}\nESTADO: {livro.estado}"
+    texto = f"SENAI CAXIAS - BIBLIOMAP\nPATRIMÓNIO: {livro.patrimonio}\nTÍTULO: {livro.titulo}\nLOCALIZACAO: Rua {livro.rua}, Estante {livro.estante}, Prat. {livro.prateleira}, Pos. {livro.posicao}\nESTADO: {livro.estado}"
 
     img = qrcode.make(texto)
     buf = io.BytesIO()
@@ -355,54 +463,77 @@ def relatorio():
     agora = datetime.utcnow()
 
     rel_html = HTML_TEMPLATE.replace('{% block content %}{% endblock %}', '''
-        <h3 class="mb-4">5. Relatórios Gerenciais</h3>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold m-0"><i class="bi bi-pie-chart-fill text-primary me-2"></i> Relatórios Gerenciais</h4>
+            <a href="/" class="btn btn-outline-secondary rounded-3"><i class="bi bi-arrow-left me-1"></i> Voltar</a>
+        </div>
         
-        <div class="row text-center mb-4">
-            <div class="col-md-3"><div class="p-3 bg-white border rounded shadow-sm"><h5>Total Acervo</h5><h3>{{ total }}</h3></div></div>
-            <div class="col-md-3"><div class="p-3 bg-white border rounded shadow-sm"><h5 class="text-warning">Emprestados</h5><h3>{{ emp_count }}</h3></div></div>
-            <div class="col-md-3"><div class="p-3 bg-white border rounded shadow-sm"><h5 class="text-danger">Danificados</h5><h3>{{ danificados }}</h3></div></div>
-            <div class="col-md-3"><div class="p-3 bg-white border rounded shadow-sm"><h5 class="text-dark">Extraviados/Baixados</h5><h3>{{ extraviados }}</h3></div></div>
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="text-muted small fw-semibold">TOTAL DO ACERVO</div>
+                    <div class="fs-2 fw-bold text-dark mt-1">{{ total }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="text-muted small fw-semibold">EMPRÉSTIMOS ATIVOS</div>
+                    <div class="fs-2 fw-bold text-warning mt-1">{{ emp_count }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="text-muted small fw-semibold">LIVROS DANIFICADOS</div>
+                    <div class="fs-2 fw-bold text-danger mt-1">{{ danificados }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="text-muted small fw-semibold">EXTRAVIADOS / BAIXADOS</div>
+                    <div class="fs-2 fw-bold text-secondary mt-1">{{ extraviados }}</div>
+                </div>
+            </div>
         </div>
 
-        <div class="card p-4 shadow-sm mb-4">
-            <h5>Empréstimos Ativos e Controle de Atrasos</h5>
-            <table class="table table-bordered mt-2 align-middle">
-                <thead class="table-secondary">
-                    <tr>
-                        <th>Livro</th>
-                        <th>Retirado Por</th>
-                        <th>Data Retirada</th>
-                        <th>Previsão Devolução</th>
-                        <th>Situação</th>
-                        <th>Ação</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for emp in emprestimos_ativos %}
-                    <tr>
-                        <td>{{ emp.livro.titulo }} ({{ emp.livro.patrimonio }})</td>
-                        <td>{{ emp.usuario.nome }}</td>
-                        <td>{{ emp.data_retirada.strftime('%d/%m/%Y') }}</td>
-                        <td>{{ emp.data_previsao.strftime('%d/%m/%Y') }}</td>
-                        <td>
-                            {% if emp.data_previsao < agora %}
-                                <span class="badge bg-danger">ATRASADO</span>
-                            {% else %}
-                                <span class="badge bg-success">Em dia</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="/devolver/{{ emp.id }}" class="btn btn-sm btn-outline-success">Registrar Devolução</a>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="6" class="text-center">Nenhum empréstimo ativo no momento.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="card card-custom p-4">
+            <h5 class="fw-bold mb-3"><i class="bi bi-clock-history me-2 text-primary"></i> Controlo de Empréstimos e Prazos</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Livro</th>
+                            <th>Retirado por</th>
+                            <th>Data Retirada</th>
+                            <th>Previsão Devolução</th>
+                            <th>Situação</th>
+                            <th class="text-end">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emp in emprestimos_ativos %}
+                        <tr>
+                            <td><strong>{{ emp.livro.titulo }}</strong> <br><small class="text-muted">#{{ emp.livro.patrimonio }}</small></td>
+                            <td>{{ emp.usuario.nome }}</td>
+                            <td>{{ emp.data_retirada.strftime('%d/%m/%Y') }}</td>
+                            <td>{{ emp.data_previsao.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                {% if emp.data_previsao < agora %}
+                                    <span class="badge badge-soft-danger"><i class="bi bi-exclamation-triangle me-1"></i> ATRASADO</span>
+                                {% else %}
+                                    <span class="badge badge-soft-success">Em dia</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="/devolver/{{ emp.id }}" class="btn btn-sm btn-outline-success rounded-2">Registar Devolução</a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6" class="text-center py-4 text-muted">Nenhum empréstimo ativo no momento.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-
-        <a href="/" class="btn btn-secondary">Voltar ao Painel Geral</a>
     ''')
 
     danificados = Livro.query.filter_by(estado='Danificado').count()
